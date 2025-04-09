@@ -1,0 +1,14 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/upload/upload",
+    "pages/result/result"
+  ],
+  "window": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "智能资助思政助手",
+    "navigationBarBackgroundColor": "#e8f5e9",
+    "backgroundColor": "#e8f5e9"
+  },
+  "usingComponents": {}
+}

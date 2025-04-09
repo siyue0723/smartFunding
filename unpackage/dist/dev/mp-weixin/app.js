@@ -1,0 +1,1 @@
+"use strict";Object.defineProperty(exports,Symbol.toStringTag,{value:"Module"});const o=require("./common/vendor.js"),p={onLaunch:function(){console.log("App Launch")},onShow:function(){console.log("App Show")},onHide:function(){console.log("App Hide")}};function n(){const e=o.createSSRApp(p);return e.use(o.uviewPlus),{app:e}}n().app.mount("#app");exports.createApp=n;

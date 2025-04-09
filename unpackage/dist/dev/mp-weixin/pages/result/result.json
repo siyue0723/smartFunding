@@ -1,0 +1,11 @@
+{
+  "navigationBarTitleText": "结果解析",
+  "navigationStyle": "custom",
+  "animationType": "slide-in-right",
+  "animationDuration": 300,
+  "usingComponents": {
+    "u-icon": "../../node-modules/uview-plus/components/u-icon/u-icon",
+    "up-icon": "../../node-modules/uview-plus/components/u-icon/u-icon",
+    "up-popup": "../../node-modules/uview-plus/components/u-popup/u-popup"
+  }
+}
