@@ -11,6 +11,33 @@
 				<text class="page-title">解析结果</text>
 			</view>
 
+			<!-- 四维画像展示 -->
+			<view class="profile-section" :class="{ 'animate-in': isLoaded }" v-if="!isProfileLoading && profileItems.length > 0">
+				<view class="profile-header" @click="toggleProfile">
+					<view class="title-wrapper">
+						<text class="profile-title">学生画像</text>
+					</view>
+					<view class="profile-icon">
+						<u-icon :name="showProfile ? 'arrow-up' : 'arrow-down'" color="#66bb6a" size="16"></u-icon>
+					</view>
+				</view>
+				<view class="profile-content" :class="{ 'profile-content-open': showProfile }">
+					<view class="profile-grid">
+						<view class="profile-card" v-for="(item, index) in profileItems" :key="index">
+							<view class="card-header-row">
+								<view class="card-icon">
+									<u-icon :name="item.icon" color="#1b5e20" size="20"></u-icon> 
+								</view>
+								<text class="card-title">{{ item.title }}</text>
+							</view>
+							<view class="card-content-row">
+								<text class="card-text">{{ item.content }}</text>
+							</view>
+						</view>
+					</view>
+				</view>
+			</view>
+
 			<!-- 综合资助指数 -->
 			<view class="comprehensive-index" :class="{ 'animate-in': isLoaded }">
 				<view class="index-header">
@@ -46,9 +73,6 @@
 									</view>
 									<text class="button-text">{{ isFundingPlanLoading ? '加载中...' : '智慧方案' }}</text>
 								</view>
-							</view>
-							<view class="action-button" @click="showProfile">
-								<text class="button-text">四维画像</text>
 							</view>
 						</view>
 					</template>
@@ -243,6 +267,7 @@ const isFundingPlanLoading = ref(false); // 添加资助方案加载状态
 const showPoverty = ref(true);
 const showBehavior = ref(true);
 const showComprehensive = ref(true);
+const showProfile = ref(true); // 添加学生画像折叠状态控制
 
 const comprehensiveScore = ref(0);
 const comprehensiveDescription = ref('');
@@ -252,6 +277,16 @@ const zishufangan = ref(null);
 
 // 添加弹窗控制变量
 const showFundingPlanPopup = ref(false);
+const showProfilePopup = ref(false);
+const isProfileLoading = ref(false);
+const profileData = ref({
+	attribute: '暂无数据',
+	Behavior: '暂无数据',
+	Psychology: '暂无数据',
+	tags: '暂无数据'
+});
+
+const profileItems = ref([]);
 
 // 添加展开状态控制
 const expandedGovs = ref({});
@@ -266,6 +301,8 @@ const zizhuData = ref({
 		shitang: ''
 	}
 });
+
+const tagList = ref([]);
 
 // 获取政策的第一行
 const getFirstLine = (text) => {
@@ -398,23 +435,10 @@ const processData = (data) => {
 		zizhuData.value.parameters.shitang = results[1].data;
 		zizhuData.value.parameters.sizheng = results[2].data;
 
-		// 使用zizhuData调用runWorkflow获取资助方案
-		isFundingPlanLoading.value = true;
-		runWorkflow(zizhuData.value).then(res => {
-			console.log('资助方案数据:', res.data);
-			// 将字符串解析为JSON对象
-			zishufangan.value = JSON.parse(res.data);
-		}).catch(err => {
-			console.error('获取资助方案失败:', err);
-			uni.showToast({
-				title: '获取资助方案失败',
-				icon: 'none'
-			});
-		}).finally(() => {
-			isFundingPlanLoading.value = false;
-		});
+		// 在综合指数计算完成后自动请求资助方案数据
+		fetchFundingPlan();
 		
-		// 在所有动画完成后显示按钮
+		// 在所有动画完成后显示按钮，按钮状态由isFundingPlanLoading控制
 		setTimeout(() => {
 			showButtons.value = true;
 		}, 500);
@@ -422,29 +446,95 @@ const processData = (data) => {
 };
 
 onMounted(() => {
-	// 初始化zishufangan数据
-	// zishufangan.value = {
-	// 	fangan: '资助方式：\n1. 考虑申请国家励志奖学金，一次性奖励5000元。申请条件为具有中华人民共和国国籍；热爱祖国，拥护中国共产党的领导；遵守宪法和法律，遵守学校规章制度；诚实守信，道德品质优良；二年级及以上年级；学习成绩和综合考评成绩班级排名前50%（含50%）；家庭经济困难，生活简朴，上一学年已被广东省教育厅认定为家庭经济困难学生。\n2. 申请"合一理想助学成长计划"，初期资助名额为10 - 15人，每人6000元/年，3年累计15000元（第3年3000元/人，资助至6月底，时长为半年）。申请条件是学业成绩优异，品德优良，家境贫寒而有上进心，有志向，有抱负的广州番禺职业技术学院全日制大一学生。\n\n思政教育活动安排：\n1. 定期组织主题班会，围绕爱国主义、诚信、感恩等主题展开讨论，引导学生树立正确的价值观和人生观。\n2. 安排与优秀学长学姐的交流活动，分享学习经验和成长故事，激励学生积极进取。\n3. 鼓励学生继续参与志愿服务活动，并在活动后组织分享会，加深学生对社会责任的理解。\n\n预期效果：\n1. 经济上缓解学生家庭经济压力，使其能够更专注于学业。\n2. 思想上培养学生积极向上的价值观，增强社会责任感和感恩之心，促进全面发展。',
-	// 	fanganimg: "https://static.shutu.cn/shutu/jpeg/open9e/2025/04/09/6ac8f1c041a6a61eb7f2061d22f08380.jpeg",
-	// 	govs: [
-	// 		{
-	// 			output: '# 广州番禺职业技术学院学生资助政策简介(2023年6月)\r\n2023-06-05 09:40:02广州番禺职业技术学院学生资助政策简介（2023年6月）\r\n学生资助咨询电话：020-34832651\r\n\r\n|资助项目|资助金额|资助对象及主要申请条件|资助人数或比例|\r\n|---|---|---|---|\r\n|**国家资助**|**国家奖学金**|一次性奖励8000元|1. 具有中华人民共和国国籍；&lt;br&gt;2. 热爱祖国，拥护中国共产党的领导；&lt;br&gt;3. 遵守宪法和法律，遵守学校规章制度；&lt;br&gt;4. 诚实守信，道德品质优良；&lt;br&gt;5. 在校期间学习成绩优异，社会实践、创新能力、综合素质等方面特别突出；&lt;br&gt;6. 年级要求：二年级及以上年级；&lt;br&gt;7. 成绩要求：学习成绩和综合考评成绩专业排名前10%（含10%）。|根据省教育厅下达名额确定|\r\n| |**国家励志奖学金**|一次性奖励5000元|1. 具有中华人民共和国国籍；&lt;br&gt;2. 热爱祖国，拥护中国共产党的领导；&lt;br&gt;3. 遵守宪法和法律，遵守学校规章制度；&lt;br&gt;4. 诚实守信，道德品质优良；&lt;br&gt;5. 年级要求：二年级及以上年级；&lt;br&gt;6. 成绩要求：学习成绩和综合考评成绩班级排名前50%（含50%）；&lt;br&gt;7. 家庭经济困难，生活简朴，上一学年已被广东省教育厅认定为家庭经济困难学生。|根据省教育厅下达名额确定|\r'
-	// 		},
-	// 		{
-	// 			output: '广州番禺职业技术学院家庭经济困难大学新生资助管理办法(试行）（番职院学〔2019〕10号）\r\n来源：学生资助管理中心 发布时间：2023-07-06 11:50:39&nbsp;\n\r\n\r\n第一章 总 则\r\n\r\n第一条 为贯彻落实精准资助和高等学校家庭经济困难大学新生资助政策，帮助我校家庭经济困难新生顺利入学、安心学习，发挥资助育人功效，根据《广东省家庭经济困难大学新生资助专项资金管理办法》（粤财教〔2014〕97号）文件精神，结合我校实际，制定本管理办法。\r\n\r\n第二章 资金来源\r\n\r\n第二条 学校计划财务处根据每年事业收入金额，计提事业收入的0.5%作为家庭经济困难大学新生资助资金，并进行专项管理。\r\n\r\n第三条 学校计提资金不足以支付当年家庭经济困难新生申请资助额度时，由学生处、计划财务处向上级申请专项资金补助。\r\n\r\n第三章 申请条件\r\n\r\n第四条 广东省生源考入我校的，由于家庭经济困难，本人及其家庭所能筹集到的资金不足以缴纳第一学年学费的全日制学生，具有以下条件之一者，可申请家庭经济困难大学新生资助：\r\n\r\n1.孤残学生。此类学生需提供儿童福利证、孤儿证明或残疾人证作为佐证材料。\r\n\r\n2.烈士子女。此类学生需提供烈士证明或优抚对象证明作为佐证材料。\r\n\r\n3.优抚家庭子女。此类学生需提供优抚对象证明或因公牺牲警察证明作为佐证材料。\r\n\r\n4.城乡低保家庭子女。此类学生需提供低保证作为佐证材料。\r\n\r\n5.城乡低收入家庭子女。此类学生需提供特困职工证、救助证或低收入证作为佐证材料。\r\n\r\n6.其他有特殊情况的家庭经济困难学生。此类学生以提供民政等部门相关证明及学院认定为准。\r\n\r\n第五条 获得新生资助的学生，在同一学年内，原则上不再享受"建档立卡学生补助"、"少数民族大学生资助"、"南粤扶残助学工程"等省财政设立的其他专项资助。\r\n\r\n第四章 资助标准\r\n\r'
-	// 		},
-	// 		{
-	// 			output: '广州番禺职业技术学院【合一理想助学成长计划】管理办法\r\n来源： 发布时间：2024-08-04 20:51:15&nbsp;\n为激励每一位家庭经济困难学生，使其感受到学校的温暖、社会的关爱、人间的真情，将助学与育人相结合，把经济扶困和智力扶困相凝聚，以培养精英技术人才为目标，宁波市合一慈善基金会在我校建立"合一理想助学成长计划"，资助家庭经济困难学生实现人生理想、开创美好前程。\r\n\r\n一、项目名称：广州番禺职业技术学院【合一理想助学成长计划】。\r\n\r\n二、资助对象：广州番禺职业技术学院全日制优秀贫困生。\r\n\r\n三、申请助学条件：学业成绩优异，品德优良，家境贫寒而有上进心，有志向，有抱负的广州番禺职业技术学院全日制大一学生。\r\n\r\n初期资助名额为10-15人，每人6000元/年，3年累计15000元（第3年3000元/人，资助至6月底，时长为半年）。\r\n\r\n四、受助人的责任和义务：受助期间，保持品学兼优；愿与资助方（宁波市合一慈善基金会）建立良好联系与沟通，并分享成长经历（按要求向资助方提交周（日）报、心得；积极参与学院与资助方组织的座谈会等活动）。\r\n\r\n五、受助人如出现下列情形之一的，由校方与资助方讨论后终止资助：\r\n\r\n（一）自动退学或作退学处理的；\r\n\r\n（二）违反校规校纪受到处分的；\r\n\r\n（三）成绩未达到班级排名前2/5（含）的；\r\n\r\n（四）家庭经济情况好转，不属家庭贫困的；\r\n\r\n（五）享受其他社会形式结对助学的。\r\n\r\n(六) 未能履行本办法中约定的受助人所需尽的责任和义务，并经核实的。\r\n\r\n六、实施程序：\r\n\r\n（一）每年九月初由学校在校园内公示此《广州番禺职业技术学院【合一理想助学成长计划】条例办法》。\r\n\r\n（二）每年十月由申请人自愿报名；\r\n\r\n（三）各专业推荐符合助学条件的学生1-2名，审核无误后上报；\r\n\r'
-	// 		}
-	// 	]
-	// };
-
 	console.log('从本地存储读取的uploadResults:', results);
 	// 使用nextTick确保在页面渲染后调用
 	nextTick(() => {
+		// 并行调用，不相互依赖
 		fetchData();
+		fetchProfileData(); 
 	});
 });
+
+const fetchProfileData = () => {
+	isProfileLoading.value = true;
+	console.log('fetchProfileData started, isProfileLoading:', isProfileLoading.value);
+	
+	const rprofileData = {
+		workflow_id: '7491300817274830899',
+		parameters: {
+			input1: results[0].data,
+			input2: results[1].data,
+			input3: results[2].data
+		}
+	};
+
+	runWorkflow(rprofileData).then(res => {
+		console.log('画像原始数据:', res);
+		// 处理画像数据
+		let data = res.data;
+		let profileContent;
+		try {
+			profileContent = JSON.parse(data);
+			console.log('画像解析后数据:', profileContent);
+		} catch (e) {
+			console.error('解析画像数据失败:', e);
+			uni.showToast({
+				title: '解析画像数据格式错误',
+				icon: 'none'
+			});
+			isProfileLoading.value = false; // 解析失败也要结束loading
+			return; // 提前返回
+		}
+		
+		// 更新基础数据
+		profileData.value = {
+			attribute: profileContent.attribute || '暂无数据',
+			Behavior: profileContent.Behavior || '暂无数据',
+			Psychology: profileContent.Psychology || '暂无数据',
+			tags: profileContent.tags || '暂无数据'
+		};
+
+		// 更新profileItems
+		profileItems.value = [
+			{
+				icon: 'account',
+				title: '基础信息',
+				content: profileData.value.attribute
+			},
+			{
+				icon: 'star',
+				title: '行为特征',
+				content: profileData.value.Behavior
+			},
+			{
+				icon: 'heart',
+				title: '心理特征',
+				content: profileData.value.Psychology
+			},
+			{
+				icon: 'tags',
+				title: '个人标签',
+				content: profileData.value.tags
+			}
+		];
+		console.log('profileItems 更新后:', profileItems.value, '长度:', profileItems.value.length);
+		
+		// 使用nextTick确保DOM更新后再显示动画
+		nextTick(() => {
+			isProfileLoading.value = false;
+			console.log('nextTick 后, isProfileLoading:', isProfileLoading.value);
+		});
+		
+	}).catch(err => {
+		console.error('获取画像失败:', err);
+		uni.showToast({
+			title: '获取画像失败',
+			icon: 'none'
+		});
+		isProfileLoading.value = false;
+		console.log('catch 后, isProfileLoading:', isProfileLoading.value);
+	});
+};
 
 // 返回上一页
 const goBack = () => {
@@ -469,10 +559,43 @@ const toggleComprehensive = () => {
 	showComprehensive.value = !showComprehensive.value;
 };
 
+// 添加切换学生画像折叠状态的函数
+const toggleProfile = () => {
+	showProfile.value = !showProfile.value;
+};
+
 // 修改showFundingPlan函数
 const showFundingPlan = () => {
 	console.log('显示资助方案');
+	// 直接显示弹窗，因为数据已经在综合指数计算后自动加载了
 	showFundingPlanPopup.value = true;
+};
+
+// 保留fetchFundingPlan函数，但不在点击时调用
+const fetchFundingPlan = () => {
+	isFundingPlanLoading.value = true;
+	runWorkflow(zizhuData.value).then(res => {
+		console.log('资助方案数据:', res.data);
+		try {
+			// 将字符串解析为JSON对象
+			zishufangan.value = JSON.parse(res.data);
+		} catch (e) {
+			console.error('解析资助方案数据失败:', e);
+			uni.showToast({
+				title: '解析资助方案数据失败',
+				icon: 'none'
+			});
+		}
+	}).catch(err => {
+		console.error('获取资助方案失败:', err);
+		uni.showToast({
+			title: '获取资助方案失败',
+			icon: 'none'
+		});
+	}).finally(() => {
+		// 确保在完成后重置加载状态
+		isFundingPlanLoading.value = false;
+	});
 };
 
 // 添加关闭弹窗函数
@@ -481,8 +604,13 @@ const closeFundingPlanPopup = () => {
 	showFundingPlanPopup.value = false;
 };
 
-const showProfile = () => {
+// 重命名函数，避免与ref变量同名
+const openProfilePopup = () => {
+	showProfilePopup.value = true;
+};
 
+const closeProfilePopup = () => {
+	showProfilePopup.value = false;
 };
 
 // 切换政策展开状态
@@ -1354,6 +1482,185 @@ const toggleGov = (index) => {
 
 	&:active {
 		background-color: rgba(102, 187, 106, 0.1);
+	}
+}
+
+/* 新的学生画像折叠样式 */
+.profile-section {
+	width: 92%;
+	margin: 20px auto;
+	background-color: rgba(255, 255, 255, 0.95);
+	border-radius: 20px;
+	padding: 16px;
+	box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+	border: 1px solid rgba(102, 187, 106, 0.1);
+	backdrop-filter: blur(10px);
+	transform: translateY(30px);
+	opacity: 0;
+	transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+	
+	&.animate-in {
+		transform: translateY(0);
+		opacity: 1;
+	}
+	
+	&:hover {
+		transform: translateY(-2px);
+		box-shadow: 0 15px 35px rgba(0, 0, 0, 0.08);
+	}
+}
+
+.profile-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 10px;
+	cursor: pointer;
+	transition: all 0.3s ease;
+	padding: 5px 8px;
+	border-radius: 8px;
+	
+	&:active {
+		background-color: rgba(102, 187, 106, 0.05);
+	}
+}
+
+.profile-title {
+	font-size: 16px;
+	font-weight: 600;
+	color: #1b5e20;
+	position: relative;
+	display: inline-block;
+	
+	&::after {
+		content: '';
+		position: absolute;
+		bottom: -3px;
+		left: 50%;
+		transform: translateX(-50%);
+		width: 30px;
+		height: 2px;
+		background: linear-gradient(to right, #43a047, #66bb6a);
+		border-radius: 1px;
+	}
+}
+
+.profile-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	border-radius: 16px;
+	transition: background-color 0.3s;
+	
+	&:active {
+		background-color: rgba(102, 187, 106, 0.1);
+	}
+}
+
+.card-header-row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.card-icon {
+	width: 36px;
+	height: 36px;
+	background-color: rgba(102, 187, 106, 0.1);
+	border-radius: 18px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	margin-top: 2px;
+}
+
+.card-title {
+	font-size: 14px;
+	font-weight: 600;
+	color: #1b5e20;
+	line-height: 1.3;
+}
+
+.card-content-row {
+	flex: 1;
+}
+
+.card-text {
+	font-size: 12px;
+	color: #424242;
+	line-height: 1.5;
+	white-space: normal;
+	overflow: visible;
+	word-break: break-word;
+}
+
+.profile-content {
+	max-height: 0;
+	overflow: hidden;
+	transition: max-height 0.5s ease-out;
+	opacity: 0;
+}
+
+.profile-content-open {
+	max-height: 2000px; /* 设置一个足够大的高度以适应内容 */
+	opacity: 1;
+	transition: max-height 0.5s ease-in, opacity 0.3s ease;
+}
+
+.profile-grid {
+	display: grid;
+	grid-template-columns: repeat(2, 1fr);
+	gap: 16px;
+	margin-top: 16px;
+	padding-bottom: 10px;
+}
+
+@media screen and (max-width: 375px) {
+	.profile-grid {
+		grid-template-columns: 1fr;
+	}
+}
+
+.profile-card {
+	background-color: rgba(255, 255, 255, 0.95);
+	border-radius: 16px;
+	padding: 14px;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+	transition: transform 0.3s ease, box-shadow 0.3s ease;
+	opacity: 0;
+	transform: translateY(20px);
+	animation: card-appear 0.4s forwards;
+	animation-play-state: paused;
+	
+	&:hover {
+		transform: translateY(-2px);
+		box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+	}
+}
+
+.profile-content-open .profile-card {
+	animation-play-state: running;
+}
+
+.profile-card:nth-child(1) { animation-delay: 0.1s; }
+.profile-card:nth-child(2) { animation-delay: 0.2s; }
+.profile-card:nth-child(3) { animation-delay: 0.3s; }
+.profile-card:nth-child(4) { animation-delay: 0.4s; }
+
+@keyframes card-appear {
+	0% {
+		opacity: 0;
+		transform: translateY(20px);
+	}
+	100% {
+		opacity: 1;
+		transform: translateY(0);
 	}
 }
 </style>

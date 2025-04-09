@@ -29,7 +29,6 @@
 								<text class="progress-text">{{ item.progress }}%</text>
 							</view>
 						</view>
-
 					</view>
 
 				</view>
@@ -39,8 +38,8 @@
 				<u-button text="提交资料" type="primary" size="large" @click="submitFiles" class="submit-button"
 					:disabled="!allFilesUploaded" hover-class="button-hover"></u-button>
 			</view>
-			<!-- <u-button text="test" type="primary" size="large" @click="totest" class="submit-button"
-				hover-class="button-hover"></u-button> -->
+			<u-button text="test" type="primary" size="large" @click="totest" class="submit-button"
+				hover-class="button-hover"></u-button>
 		</view>
 
 		<view class="floating-dots">
